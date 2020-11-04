@@ -3,8 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 type Coupon struct {
@@ -47,11 +50,36 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 	result := Result{Status: valid}
 
+	callNextService := makeHttp("https://localhost:9093")
+	result = callNextService
+
 	jsonResult, err := json.Marshal(result)
 	if err != nil {
 		log.Fatal("Error converting json")
 	}
 
 	fmt.Fprintf(w, string(jsonResult))
+
+}
+
+func makeHttp(urlMircrosservice string) Result {
+
+	result := Result{Status: "Sucess"}
+
+	retryablehttp := retryablehttp.NewClient()
+	retryablehttp.RetryMax = 5
+
+	response := Result{}
+
+	res, err := retryablehttp.Get(urlMircrosservice)
+	if err != nil {
+		result.Status = "Server is down :("
+	}
+
+	data, err := ioutil.ReadAll(res.Body)
+
+	json.Unmarshal(data, &response)
+
+	return result
 
 }
